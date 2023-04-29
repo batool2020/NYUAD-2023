@@ -25,13 +25,16 @@ service = QiskitRuntimeService(
 
 
 options = {
-    "max_execution_time": 300,
-    "instance": "ibm-q/open/main",
+    "max_execution_time": 1500,
+    "instance": "ibm-q-startup/qbraid/reservations",
 }
 
 
-with Session(service, backend="ibmq_guadalupe") as session:
-    sampler = Sampler()
+with Session(
+    service,
+    backend="ibmq_guadalupe",
+) as session:
+    sampler = Sampler(session=session, options=Options(options))
 
     # Sample run of TSP on hardware
     z, result = run_tsp_on_hardware(graph, sampler)
