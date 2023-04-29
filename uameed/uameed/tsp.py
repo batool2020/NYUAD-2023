@@ -20,7 +20,12 @@ from qiskit_optimization.converters import QuadraticProgramToQubo
 from qiskit.algorithms.minimum_eigensolvers import NumPyMinimumEigensolver
 from qiskit_optimization.applications.optimization_application import sample_most_likely
 from qiskit_optimization.applications import Tsp
-from qiskit.tools.visualization import plot_histogram
+from qiskit.circuit.library import TwoLocal
+from qiskit_optimization.applications import Tsp
+from qiskit.algorithms.minimum_eigensolvers import SamplingVQE, NumPyMinimumEigensolver
+from qiskit.algorithms.optimizers import SPSA
+from qiskit.utils import algorithm_globals
+from qiskit.primitives import Sampler
 import networkx as nx
 import numpy as np
 from qiskit.algorithms.minimum_eigen_solvers import VQE
@@ -102,9 +107,9 @@ def run_tsp_on_simulator(G: nx.Graph) -> MinimumEigenOptimizer:
     """Runs the TSP on a qiskit statevector simulator"""
     qp, tsp = _convert_to_tsp_problem(G)
     # Convert the problem to an ising model
+
     qp2qubo = QuadraticProgramToQubo()
     qubo = qp2qubo.convert(qp)
-    qubitOp, offset = qubo.to_ising()
 
     # Solve the quadratic program using the exact eigensolver
     # solving Quadratic Program using exact classical eigensolver
@@ -118,8 +123,19 @@ def run_tsp_on_hardware(G: nx.graph):
     """Runs the TSP on a qiskit hardware"""
     qp, tsp = _convert_to_tsp_problem(G)
     # Convert the problem to an ising model
-    qp2qubo = QuadraticProgramToQubo()
-    qubo = qp2qubo.convert(qp)
-    qubitOp, offset = qubo.to_ising()
+    optimizer = SPSA(maxiter=300)
+    ry = TwoLocal(qubitOp.num_qubits, "ry", "cz", reps=5, entanglement="linear")
+    vqe = SamplingVQE(sampler=Sampler(), ansatz=ry, optimizer=optimizer)
+
+    result = vqe.compute_minimum_eigenvalue(qubitOp)
+
+    print("energy:", result.eigenvalue.real)
+    print("time:", result.optimizer_time)
+    x = tsp.sample_most_likely(result.eigenstate)
+    print("feasible:", qubo.is_feasible(x))
+    z = tsp.interpret(x)
+    print("solution:", z)
+    print("solution objective:", tsp.tsp_value(z, adj_matrix))
+    draw_tsp_solution(tsp.graph, z, colors, pos)
 
     return result
