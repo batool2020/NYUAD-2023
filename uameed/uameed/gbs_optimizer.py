@@ -1,13 +1,13 @@
-# https://strawberryfields.readthedocs.io/en/stable/code/api/strawberryfields.apps.subgraph.search.html
-from strawberryfields.apps.subgraph import search
 
+from strawberryfields.apps import data, sample, subgraph, plot
+import plotly
+import networkx as nx
 
 class GBSOptimizer:
-    def __init__(self, N, K, graph, iters):
+    def __init__(self, N = 30, K = 8, graph = "base"):
         self.N = N
         self.K = K
         self.original_graph = graph
-
         # this will be the collapsed graph
         self.collapsed_graph = None
         self.clusters = None
@@ -124,12 +124,12 @@ class GBSOptimizer:
         # 2. Find the subgraph routes
         subgraph_tsp_routes = self.find_subgraph_routes()
 
-        # 2. Collapse the graph
+        # 3. Collapse the graph
         self.collapsed_graph, self.edge_pairing = self.get_collapsed_graph(
-            self.clusters
+            self.subgraphs
         )
 
-        # 3. Make tsp route for big graph
+        # 4. Make tsp route for big graph
         global_tsp_route = self.calculate_cycle(self.collapsed_graph)
 
         return self.get_cost(subgraph_tsp_routes, global_tsp_route)
