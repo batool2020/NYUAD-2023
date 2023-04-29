@@ -18,9 +18,10 @@ graph = add_missing_edges(graph)
 
 
 from qiskit_ibm_runtime import QiskitRuntimeService, Session, Options, Sampler
-from qiskit_ibm_provider import IBMProvider
 
-service = QiskitRuntimeService(channel="ibm_quantum")
+service = QiskitRuntimeService(
+    channel="ibm_quantum", instance="ibm-q-startup/qbraid/reservations"
+)
 
 
 options = {
@@ -29,7 +30,7 @@ options = {
 }
 
 
-with Session(service, backend="ibmq_qasm_simulator") as session:
+with Session(service, backend="ibmq_guadalupe") as session:
     sampler = Sampler()
 
     # Sample run of TSP on hardware
