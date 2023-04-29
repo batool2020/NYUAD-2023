@@ -15,7 +15,7 @@
 
 """
 
-import logging
+from tqdm import tqdm
 from typing import Tuple
 from qiskit_optimization.converters import QuadraticProgramToQubo
 from qiskit.algorithms.minimum_eigensolvers import NumPyMinimumEigensolver
@@ -49,7 +49,28 @@ def sample_graph_with_weights() -> nx.Graph:
     graph = nx.Graph()
     graph.add_nodes_from(range(4))
     graph.add_weighted_edges_from(
-        [(0, 1, 1.0), (0, 2, 1.0), (0, 3, 1.0), (1, 2, 2.0), (2, 3, 1.0)]
+        [
+            (0, 1, 23.0),
+            (0, 2, 11.0),
+            (0, 3, 19.0),
+            (1, 2, 92.0),
+            (2, 3, 61.0),
+            (1, 3, 1.0),
+        ]
+    )
+    # print the graph
+    print("graph:", graph.nodes(), graph.edges(data=True))
+    # draw the graph
+    pos = nx.spring_layout(graph)
+    colors = ["r" for node in graph.nodes()]
+    default_axes = plt.axes(frameon=True)
+    nx.draw_networkx(
+        graph,
+        node_color=colors,
+        node_size=600,
+        alpha=0.8,
+        ax=default_axes,
+        pos=pos,
     )
     return graph
 
@@ -101,33 +122,38 @@ def _convert_to_tsp_problem(G: nx.Graph) -> Tsp:
     # Convert the problem to a quadratic program
     qp = tsp.to_quadratic_program()
     print(qp.prettyprint())
-    return qp, tsp
+    qp2qubo = QuadraticProgramToQubo()
+    qubo = qp2qubo.convert(qp)
+    qubitOp, offset = qubo.to_ising()
+    return qubitOp, offset, qp, qubo, tsp
 
 
 def run_tsp_on_simulator(G: nx.Graph) -> MinimumEigenOptimizer:
     """Runs the TSP on a qiskit statevector simulator"""
-    qp, tsp = _convert_to_tsp_problem(G)
+    qubitOp, offset, _qp, qubo, tsp = _convert_to_tsp_problem(G)
     # Convert the problem to an ising model
 
-    qp2qubo = QuadraticProgramToQubo()
-    qubo = qp2qubo.convert(qp)
-
     # Solve the quadratic program using the exact eigensolver
-    # solving Quadratic Program using exact classical eigensolver
-    exact = MinimumEigenOptimizer(NumPyMinimumEigensolver())
-    result = exact.solve(qubo)
-    print(result.prettyprint())
-    return result
+
+    # Making the Hamiltonian in its full form and getting the lowest eigenvalue and eigenvector
+    ee = NumPyMinimumEigensolver()
+
+    result = tqdm(ee.compute_minimum_eigenvalue(qubitOp))
+
+    print("energy:", result.eigenvalue.real)
+    print("tsp objective:", result.eigenvalue.real + offset)
+    x = tsp.sample_most_likely(result.eigenstate)
+    print("feasible:", qubo.is_feasible(x))
+    z = tsp.interpret(x)
+    print("solution:", z)
+    return z, x, result
 
 
 def run_tsp_on_hardware(
-    G: nx.graph, maxiter: int = 300, reps: int = 5
+    G: nx.graph, maxiter: int = 1, reps: int = 1
 ) -> Tuple[np.ndarray, SamplingMinimumEigensolverResult]:
     """Runs the TSP on a qiskit hardware"""
-    qp, tsp = _convert_to_tsp_problem(G)
-    qp2qubo = QuadraticProgramToQubo()
-    qubo = qp2qubo.convert(qp)
-    qubitOp, offset = qp.to_ising()
+    qubitOp, offset, _qp, qubo, tsp = _convert_to_tsp_problem(G)
 
     # Convert the problem to an ising model
     optimizer = SPSA(maxiter=maxiter)
