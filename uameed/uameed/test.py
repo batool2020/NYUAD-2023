@@ -1,9 +1,7 @@
-from qiskit_optimization.applications import Tsp
+# Sample run of TSP
+
+from tsp import run_tsp_on_simulator, sample_graph_with_weights
 
 
-# Generating a graph of 3 nodes
-n = 3
-num_qubits = n**2
-tsp = Tsp()
-
-print(tsp, type(tsp.graph))
+graph = sample_graph_with_weights()
+optimizer = run_tsp_on_simulator(graph)

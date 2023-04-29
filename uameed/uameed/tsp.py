@@ -16,14 +16,15 @@
 """
 
 import logging
+from typing import Tuple
 from qiskit_optimization.converters import QuadraticProgramToQubo
 from qiskit.algorithms.minimum_eigensolvers import NumPyMinimumEigensolver
-from qiskit_optimization.applications.optimization_application import sample_most_likely
 from qiskit_optimization.applications import Tsp
 from qiskit.circuit.library import TwoLocal
 from qiskit_optimization.applications import Tsp
 from qiskit.algorithms.minimum_eigensolvers import SamplingVQE, NumPyMinimumEigensolver
 from qiskit.algorithms.optimizers import SPSA
+from qiskit.algorithms.minimum_eigensolvers import SamplingMinimumEigensolverResult
 from qiskit.utils import algorithm_globals
 from qiskit.primitives import Sampler
 import networkx as nx
@@ -119,12 +120,18 @@ def run_tsp_on_simulator(G: nx.Graph) -> MinimumEigenOptimizer:
     return result
 
 
-def run_tsp_on_hardware(G: nx.graph):
+def run_tsp_on_hardware(
+    G: nx.graph, maxiter: int = 300, reps: int = 5
+) -> Tuple[np.ndarray, SamplingMinimumEigensolverResult]:
     """Runs the TSP on a qiskit hardware"""
     qp, tsp = _convert_to_tsp_problem(G)
+    qp2qubo = QuadraticProgramToQubo()
+    qubo = qp2qubo.convert(qp)
+    qubitOp, offset = qp.to_ising()
+
     # Convert the problem to an ising model
-    optimizer = SPSA(maxiter=300)
-    ry = TwoLocal(qubitOp.num_qubits, "ry", "cz", reps=5, entanglement="linear")
+    optimizer = SPSA(maxiter=maxiter)
+    ry = TwoLocal(qubitOp.num_qubits, "ry", "cz", reps=reps, entanglement="linear")
     vqe = SamplingVQE(sampler=Sampler(), ansatz=ry, optimizer=optimizer)
 
     result = vqe.compute_minimum_eigenvalue(qubitOp)
@@ -135,7 +142,5 @@ def run_tsp_on_hardware(G: nx.graph):
     print("feasible:", qubo.is_feasible(x))
     z = tsp.interpret(x)
     print("solution:", z)
-    print("solution objective:", tsp.tsp_value(z, adj_matrix))
-    draw_tsp_solution(tsp.graph, z, colors, pos)
 
-    return result
+    return z, result
