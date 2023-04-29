@@ -15,8 +15,7 @@
 
 """
 
-from tqdm import tqdm
-from typing import Tuple
+from typing import Tuple, List, Optional, Union
 from qiskit_optimization.converters import QuadraticProgramToQubo
 from qiskit.algorithms.minimum_eigensolvers import NumPyMinimumEigensolver
 from qiskit_optimization.applications import Tsp
@@ -52,10 +51,8 @@ def sample_graph_with_weights() -> nx.Graph:
         [
             (0, 1, 23.0),
             (0, 2, 11.0),
-            (0, 3, 19.0),
             (1, 2, 92.0),
             (2, 3, 61.0),
-            (1, 3, 1.0),
         ]
     )
     # print the graph
@@ -73,6 +70,27 @@ def sample_graph_with_weights() -> nx.Graph:
         pos=pos,
     )
     return graph
+
+
+def add_missing_edges(G: nx.Graph) -> nx.Graph:
+    """Adds edges to a graph
+
+    Args:
+        G (nx.Graph): Graph to add edges to
+        edges (List[Tuple[int, int, float]]): List of edges to add
+
+    Returns:
+        nx.Graph: Graph with edges added
+    """
+    # Get the non_edges
+    non_edges = nx.non_edges(G)
+
+    # Add large weight to non_edges
+    non_edges = [(u, v, 10000.0) for (u, v) in non_edges]
+    print(non_edges)
+    # Add all the non_edges to the graph
+    G.add_weighted_edges_from(non_edges)
+    return G
 
 
 def draw_tsp_solution(G, order, colors, pos):
@@ -128,7 +146,7 @@ def _convert_to_tsp_problem(G: nx.Graph) -> Tsp:
     return qubitOp, offset, qp, qubo, tsp
 
 
-def run_tsp_on_simulator(G: nx.Graph) -> MinimumEigenOptimizer:
+def run_tsp_on_simulator(G: nx.Graph) -> Tuple[List, MinimumEigenOptimizer]:
     """Runs the TSP on a qiskit statevector simulator"""
     qubitOp, offset, _qp, qubo, tsp = _convert_to_tsp_problem(G)
     # Convert the problem to an ising model
@@ -138,7 +156,7 @@ def run_tsp_on_simulator(G: nx.Graph) -> MinimumEigenOptimizer:
     # Making the Hamiltonian in its full form and getting the lowest eigenvalue and eigenvector
     ee = NumPyMinimumEigensolver()
 
-    result = tqdm(ee.compute_minimum_eigenvalue(qubitOp))
+    result = ee.compute_minimum_eigenvalue(qubitOp)
 
     print("energy:", result.eigenvalue.real)
     print("tsp objective:", result.eigenvalue.real + offset)
@@ -146,11 +164,11 @@ def run_tsp_on_simulator(G: nx.Graph) -> MinimumEigenOptimizer:
     print("feasible:", qubo.is_feasible(x))
     z = tsp.interpret(x)
     print("solution:", z)
-    return z, x, result
+    return z, result
 
 
 def run_tsp_on_hardware(
-    G: nx.graph, maxiter: int = 1, reps: int = 1
+    G: nx.graph, maxiter: int = 10, reps: int = 5
 ) -> Tuple[np.ndarray, SamplingMinimumEigensolverResult]:
     """Runs the TSP on a qiskit hardware"""
     qubitOp, offset, _qp, qubo, tsp = _convert_to_tsp_problem(G)
