@@ -168,7 +168,7 @@ def run_tsp_on_simulator(G: nx.Graph) -> Tuple[List, MinimumEigenOptimizer]:
 
 
 def run_tsp_on_hardware(
-    G: nx.graph, maxiter: int = 10, reps: int = 5
+    G: nx.graph, sampler: Sampler, maxiter: int = 10, reps: int = 5
 ) -> Tuple[np.ndarray, SamplingMinimumEigensolverResult]:
     """Runs the TSP on a qiskit hardware"""
     qubitOp, offset, _qp, qubo, tsp = _convert_to_tsp_problem(G)
@@ -176,7 +176,7 @@ def run_tsp_on_hardware(
     # Convert the problem to an ising model
     optimizer = SPSA(maxiter=maxiter)
     ry = TwoLocal(qubitOp.num_qubits, "ry", "cz", reps=reps, entanglement="linear")
-    vqe = SamplingVQE(sampler=Sampler(), ansatz=ry, optimizer=optimizer)
+    vqe = SamplingVQE(sampler=sampler, ansatz=ry, optimizer=optimizer)
 
     result = vqe.compute_minimum_eigenvalue(qubitOp)
 
