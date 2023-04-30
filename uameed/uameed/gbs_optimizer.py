@@ -1,10 +1,10 @@
-
 from strawberryfields.apps import data, sample, subgraph, plot
 import plotly
 import networkx as nx
 
+
 class GBSOptimizer:
-    def __init__(self, N = 30, K = 8, graph = "base"):
+    def __init__(self, N=30, K=8, graph="base"):
         self.N = N
         self.K = K
         self.original_graph = graph
